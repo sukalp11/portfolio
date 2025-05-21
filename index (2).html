@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tibetan Text Extractor</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        /* Custom colors for Buddhist theme */
+        .bg-maroon-800 { background-color: #800000; } /* Dark Maroon */
+        .text-maroon-800 { color: #800000; }
+        .bg-maroon-600 { background-color: #A00000; } /* Medium Maroon */
+        .hover\:bg-maroon-700:hover { background-color: #900000; }
+        .focus\:ring-maroon-500:focus { --tw-ring-color: #B00000; }
+
+        /* Gamboge Yellow shades */
+        .bg-gamboge-light { background-color: #FFF8E1; } /* Very light gamboge for background */
+        .bg-gamboge-main { background-color: #FCA311; } /* Bright Gamboge Yellow */
+        .text-gamboge-dark { color: #D47C00; } /* Darker gamboge for text */
+        .border-gamboge-dark { border-color: #D47C00; }
+
+        .bg-white-ish { background-color: #FDFDFD; } /* Off-white */
+        .text-gray-800 { color: #2D3748; } /* Dark gray for general text */
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+        const ReactDOM = window.ReactDOM;
+
+        // Main App component
+        const App = () => {
+          // State to hold the raw input text from the textarea
+          const [inputText, setInputText] = useState('');
+          // State to hold the extracted Tibetan text
+          const [tibetanText, setTibetanText] = useState('');
+          // State to hold the extracted Transliteration text
+          const [transliterationText, setTransliterationText] = useState('');
+          // State to hold the extracted English text
+          const [englishText, setEnglishText] = useState('');
+
+          // Function to handle the extraction logic
+          const extractText = () => {
+            // Split the input text into individual lines
+            const lines = inputText.split('\n').filter(line => line.trim() !== ''); // Filter out empty lines
+
+            let tibetan = [];
+            let transliteration = [];
+            let english = [];
+
+            // Iterate through the lines and assign them based on their order (modulo 3)
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i].trim();
+              if (line === '') continue; // Skip empty lines after trimming
+
+              // The pattern is Tibetan, Transliteration, English, then repeats
+              if (i % 3 === 0) {
+                tibetan.push(line);
+              } else if (i % 3 === 1) {
+                transliteration.push(line);
+              } else { // i % 3 === 2
+                english.push(line);
+              }
+            }
+
+            // Update the state with the extracted texts, joining them with newlines
+            setTibetanText(tibetan.join('\n'));
+            setTransliterationText(transliteration.join('\n'));
+            setEnglishText(english.join('\n'));
+          };
+
+          // Function to clear all text areas
+          const clearAll = () => {
+            setInputText('');
+            setTibetanText('');
+            setTransliterationText('');
+            setEnglishText('');
+          };
+
+          // Function to download text as PDF
+          const downloadPdf = (text, filename) => {
+            // Check if jsPDF is loaded
+            if (typeof window.jsPDF === 'undefined') {
+              console.error('jsPDF library not loaded. Please check the CDN link.');
+              return;
+            }
+
+            const doc = new window.jsPDF(); // Create a new jsPDF instance
+            const lineHeight = 10; // Line height for text in PDF
+            const margin = 10; // Margin from the left edge
+            let y = margin; // Initial Y position
+
+            // Split text into lines and add to PDF, handling page breaks
+            const lines = doc.splitTextToSize(text, doc.internal.pageSize.width - 2 * margin);
+
+            lines.forEach(line => {
+              // If current line exceeds page height, add a new page
+              if (y + lineHeight > doc.internal.pageSize.height - margin) {
+                doc.addPage();
+                y = margin; // Reset Y position for new page
+              }
+              doc.text(line, margin, y); // Add text to PDF
+              y += lineHeight; // Increment Y position for next line
+            });
+
+            doc.save(filename); // Save the PDF
+          };
+
+
+          return (
+            <div className="min-h-screen bg-gamboge-light p-4 flex flex-col items-center font-sans">
+              <div className="bg-white-ish p-6 rounded-xl shadow-lg w-full max-w-4xl mb-6">
+                <h1 className="text-3xl font-bold text-maroon-800 mb-6 text-center">
+                  Tibetan Text Extractor
+                </h1>
+
+                {/* Input Section */}
+                <div className="mb-6">
+                  <label htmlFor="inputText" className="block text-maroon-800 text-lg font-medium mb-2">
+                    Paste Your Text Here:
+                  </label>
+                  <textarea
+                    id="inputText"
+                    className="w-full p-3 border border-gamboge-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-maroon-500 text-gray-800 text-base h-48 resize-y bg-gamboge-light"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    placeholder="e.g.,
+བཅོམ་ལྡན་རྣམ་པར་གཟིགས་ནི་རྒྱལ་རིགས་གཟི་བརྗིད་ཅན། །
+chomden nampar zik ni gyalrik ziji chen
+The bhagavat Vipaśyin, majestic and of the warrior caste,
+ཚེ་ལོ་བརྒྱད་ཁྲིའི་དུས་ན་གྲོང་ཁྱེར་མཛེས་ལྡན་དུ། །
+tselo gyé tri dü na drongkhyer dzeden du
+Was born in the city called Beautiful when humans lived for 80,000 years,"
+                  ></textarea>
+                </div>
+
+                {/* Action Buttons (Extract, Clear) */}
+                <div className="flex justify-center space-x-4 mb-8">
+                  <button
+                    onClick={extractText}
+                    className="px-6 py-3 bg-maroon-600 text-white font-semibold rounded-lg shadow-md hover:bg-maroon-700 focus:outline-none focus:ring-2 focus:ring-maroon-500 focus:ring-offset-2 transition duration-200 ease-in-out"
+                  >
+                    Extract Text
+                  </button>
+                  <button
+                    onClick={clearAll}
+                    className="px-6 py-3 bg-gray-400 text-white font-semibold rounded-lg shadow-md hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition duration-200 ease-in-out"
+                  >
+                    Clear All
+                  </button>
+                </div>
+
+                {/* Output Sections */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"> {/* Added mb-8 for spacing */}
+                  {/* Tibetan Output */}
+                  <div className="bg-gamboge-light p-4 rounded-lg shadow-inner">
+                    <label htmlFor="tibetanOutput" className="block text-maroon-800 text-lg font-medium mb-2">
+                      Tibetan Script:
+                    </label>
+                    <textarea
+                      id="tibetanOutput"
+                      className="w-full p-3 border border-gamboge-dark rounded-lg bg-gamboge-light text-gray-800 text-base h-48 resize-y"
+                      value={tibetanText}
+                      readOnly
+                      placeholder="Extracted Tibetan text will appear here."
+                    ></textarea>
+                  </div>
+
+                  {/* Transliteration Output */}
+                  <div className="bg-gamboge-light p-4 rounded-lg shadow-inner">
+                    <label htmlFor="transliterationOutput" className="block text-maroon-800 text-lg font-medium mb-2">
+                      Transliteration:
+                    </label>
+                    <textarea
+                      id="transliterationOutput"
+                      className="w-full p-3 border border-gamboge-dark rounded-lg bg-gamboge-light text-gray-800 text-base h-48 resize-y"
+                      value={transliterationText}
+                      readOnly
+                      placeholder="Extracted Transliteration will appear here."
+                    ></textarea>
+                  </div>
+
+                  {/* English Output */}
+                  <div className="bg-gamboge-light p-4 rounded-lg shadow-inner">
+                    <label htmlFor="englishOutput" className="block text-maroon-800 text-lg font-medium mb-2">
+                      English Translation:
+                    </label>
+                    <textarea
+                      id="englishOutput"
+                      className="w-full p-3 border border-gamboge-dark rounded-lg bg-gamboge-light text-gray-800 text-base h-48 resize-y"
+                      value={englishText}
+                      readOnly
+                      placeholder="Extracted English translation will appear here."
+                    ></textarea>
+                  </div>
+                </div>
+
+                {/* Download PDF Buttons (moved to the end) */}
+                <div className="flex justify-center space-x-4">
+                  <button
+                    onClick={() => downloadPdf(tibetanText, 'tibetan_text.pdf')}
+                    className="px-6 py-3 bg-maroon-600 text-white font-semibold rounded-lg shadow-md hover:bg-maroon-700 focus:outline-none focus:ring-2 focus:ring-maroon-500 focus:ring-offset-2 transition duration-200 ease-in-out"
+                  >
+                    Download Tibetan PDF
+                  </button>
+                  <button
+                    onClick={() => downloadPdf(transliterationText, 'transliteration.pdf')}
+                    className="px-6 py-3 bg-maroon-600 text-white font-semibold rounded-lg shadow-md hover:bg-maroon-700 focus:outline-none focus:ring-2 focus:ring-maroon-500 focus:ring-offset-2 transition duration-200 ease-in-out"
+                  >
+                    Download Transliteration PDF
+                  </button>
+                  <button
+                    onClick={() => downloadPdf(englishText, 'english_translation.pdf')}
+                    className="px-6 py-3 bg-maroon-600 text-white font-semibold rounded-lg shadow-md hover:bg-maroon-700 focus:outline-none focus:ring-2 focus:ring-maroon-500 focus:ring-offset-2 transition duration-200 ease-in-out"
+                  >
+                    Download English PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        // Render the App component into the root div
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+
+    <div class="absolute bottom-4 right-4 text-gray-600 text-sm">
+        Created by Sukalp Dabral
+    </div>
+</body>
+</html>
